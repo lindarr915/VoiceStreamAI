@@ -1,13 +1,24 @@
+import ray
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from ray import serve
+
 import websockets
 import uuid
 import json
 import asyncio
+import logging
 
 from src.audio_utils import save_audio_to_file
 from src.client import Client
-from fastapi import FastAPI, WebSocket
 
-class Server:
+logger = logging.getLogger("ray.serve")
+logger.setLevel(logging.DEBUG)
+fastapi_app = FastAPI()
+
+
+@serve.deployment(ray_actor_options={"num_gpus": 1})
+@serve.ingress(fastapi_app)
+class TranscriptionServer:
     """
     Represents the WebSocket server for handling real-time audio transcription.
 
@@ -24,23 +35,28 @@ class Server:
         samples_width (int): The width of each audio sample in bits.
         connected_clients (dict): A dictionary mapping client IDs to Client objects.
     """
-    def __init__(self, vad_pipeline, asr_pipeline, host='localhost', port=8765, sampling_rate=16000, samples_width=2):
-        self.vad_pipeline = vad_pipeline
-        self.asr_pipeline = asr_pipeline
-        self.host = host
-        self.port = port
+    def __init__(self, sampling_rate=16000, samples_width=2):
+        # self.vad_pipeline = vad_pipeline
+        # self.asr_pipeline = asr_pipeline
         self.sampling_rate = sampling_rate
         self.samples_width = samples_width
         self.connected_clients = {}
 
-    async def handle_audio(self, client: Client, websocket):
-        while True:
-            message = await websocket.recv()
+        from src.asr.asr_factory import ASRFactory
+        from src.vad.vad_factory import VADFactory
 
-            if isinstance(message, bytes):
-                client.append_audio_data(message)
-            elif isinstance(message, str):
-                config = json.loads(message)
+        self.vad_pipeline = VADFactory.create_vad_pipeline("pyannote")
+        self.asr_pipeline = ASRFactory.create_asr_pipeline("faster_whisper")
+
+
+    async def handle_audio(self, client : Client, websocket: WebSocket):
+        while True:
+            message = await websocket.receive()
+
+            if isinstance(message["bytes"], bytes):
+                client.append_audio_data(message["bytes"],)
+            elif isinstance(message['text'], str):
+                config = json.loads(message["text"])
                 if config.get('type') == 'config':
                     client.update_config(config['data'])
                     continue
@@ -50,8 +66,10 @@ class Server:
             # this is synchronous, any async operation is in BufferingStrategy
             client.process_audio(websocket, self.vad_pipeline, self.asr_pipeline)
 
+    @fastapi_app.websocket("/")
+    async def handle_websocket(self, websocket: WebSocket):
+        await websocket.accept()
 
-    async def handle_websocket(self, websocket, path):
         client_id = str(uuid.uuid4())
         client = Client(client_id, self.sampling_rate, self.samples_width)
         self.connected_clients[client_id] = client
@@ -65,6 +83,5 @@ class Server:
         finally:
             del self.connected_clients[client_id]
 
-    def start(self):
-        print("Websocket server ready to accept connections")
-        return websockets.serve(self.handle_websocket, self.host, self.port)
+
+app = TranscriptionServer.bind()

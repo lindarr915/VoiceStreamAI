@@ -1,4 +1,5 @@
 from src.buffering_strategy.buffering_strategy_factory import BufferingStrategyFactory
+from fastapi import WebSocket
 
 class Client:
     """
@@ -50,5 +51,5 @@ class Client:
     def get_file_name(self):
         return f"{self.client_id}_{self.file_counter}.wav"
     
-    def process_audio(self, websocket, vad_pipeline, asr_pipeline):
+    def process_audio(self, websocket : WebSocket, vad_pipeline, asr_pipeline):
         self.buffering_strategy.process_audio(websocket, vad_pipeline, asr_pipeline)
