@@ -73,7 +73,7 @@ class TranscriptionServer:
 
         try:
             await self.handle_audio(client, websocket)
-        except websockets.ConnectionClosed as e:
+        except WebSocketDisconnect as e:
             print(f"Connection with {client_id} closed: {e}")
         finally:
             del self.connected_clients[client_id]
