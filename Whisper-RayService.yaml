@@ -78,6 +78,9 @@ spec:
                 cpu: 3
                 memory: 12G
                 nvidia.com/gpu: 1
+            env:
+            - name: 'PYANNOTE_AUTH_TOKEN'
+              value: '' # your HF TOKEN
             # volumeMounts:
               # - name: model-storage
                 # mountPath: /serve_app/model
@@ -96,11 +99,20 @@ spec:
         import_path: src.voice_stream_ai_server:app
         # import_path: stable_diffusion.stable_diffusion:entrypoint
         runtime_env:
-        #   # working_dir: "/serve_app/"
+        #  working_dir: "/serve_app/"
           working_dir: "https://github.com/lindarr915/VoiceStreamAI/archive/65be10ebee27e8f13b65e131d187c42646f68986.zip"
           pip: [
             "faster-whisper==0.10.0",
             "pyannote.audio==3.1.1",
+            "transformers==4.37.2",
+            "TorchAudio==2.2.0",
+            "torchtext==0.17.0",
+            "pyannote.core==5.0.0",
+            "sentence-transformers==2.3.1",
+            "asyncio==3.4.3",
+            "torch==2.2.0",
+            "lightning_fabric==2.2.0.post0",
+            "lightning-bolts==0.7.0"
           ]
         deployments:
         - name: TranscriptionServer
