@@ -50,16 +50,16 @@ class TranscriptionServer:
 
 
     async def handle_audio(self, client : Client, websocket: WebSocket):
-        message = await websocket.receive_text()
-        config = json.loads(message)
-
-        if config.get('type') == 'config':
-            client.update_config(config['data'])
-
         while True:
             message = await websocket.receive_bytes()
-            client.append_audio_data(message)            # this is synchronous, any async operation is in BufferingStrategy
-            client.process_audio(websocket, self.vad_pipeline, self.asr_pipeline)
+            if message.isascii():
+                # message = message.decode('utf-8')
+                config = json.loads(message)
+                if config.get('type') == 'config':
+                    client.update_config(config['data'])
+            else:
+                client.append_audio_data(message)            # this is synchronous, any async operation is in BufferingStrategy
+                client.process_audio(websocket, self.vad_pipeline, self.asr_pipeline)
 
     @fastapi_app.websocket("/")
     async def handle_websocket(self, websocket: WebSocket):

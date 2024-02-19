@@ -21,9 +21,8 @@ spec:
               value: http://prometheus-grafana.prometheus-system.svc:80
             - name: RAY_PROMETHEUS_HOST
               value: http://prometheus-kube-prometheus-prometheus.prometheus-system.svc:9090
-            image: rayproject/ray-ml:2.9.0-py310-cpu
-            # image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-stable-diffusion:latest
-
+            image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-whisper-streaming:latest
+            # rayproject/ray-ml:2.9.2-py310
             name: ray-head
             ports:
             - containerPort: 6379
@@ -55,10 +54,9 @@ spec:
           volumes:
           - emptyDir: {}
             name: ray-logs
-    rayVersion: 2.9.0
+    rayVersion: 2.9.2
     workerGroupSpecs:
     - groupName: gpu-group
-      # serviceType: NodePort
       maxReplicas: 20
       minReplicas: 1
       rayStartParams: {}
@@ -66,8 +64,7 @@ spec:
       template:
         spec:
           containers:
-          # - image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-stable-diffusion:latest
-          - image: rayproject/ray-ml:2.9.0-py310
+          - image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-whisper-streaming:latest
             name: ray-worker
             resources:
               limits:
@@ -80,7 +77,7 @@ spec:
                 nvidia.com/gpu: 1
             env:
             - name: 'PYANNOTE_AUTH_TOKEN'
-              value: '' # your HF TOKEN
+              value: ''
             # volumeMounts:
               # - name: model-storage
                 # mountPath: /serve_app/model
@@ -97,28 +94,12 @@ spec:
     applications:
       - name: whisper-streaming
         import_path: src.voice_stream_ai_server:app
-        # import_path: stable_diffusion.stable_diffusion:entrypoint
-        runtime_env:
-        #  working_dir: "/serve_app/"
-          working_dir: "https://github.com/lindarr915/VoiceStreamAI/archive/65be10ebee27e8f13b65e131d187c42646f68986.zip"
-          pip: [
-            "faster-whisper==0.10.0",
-            "pyannote.audio==3.1.1",
-            "transformers==4.37.2",
-            "TorchAudio==2.2.0",
-            "torchtext==0.17.0",
-            "pyannote.core==5.0.0",
-            "sentence-transformers==2.3.1",
-            "asyncio==3.4.3",
-            "torch==2.2.0",
-            "lightning_fabric==2.2.0.post0",
-            "lightning-bolts==0.7.0"
-          ]
+        # runtime_env:
         deployments:
         - name: TranscriptionServer
           max_concurrent_queries: 5
           autoscaling_config:
-            target_num_ongoing_requests_per_replica: 2
+            target_num_ongoing_requests_per_replica: 5
             min_replicas: 1
             max_replicas: 20
             initial_replicas: 1
