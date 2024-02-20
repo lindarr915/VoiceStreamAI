@@ -17,7 +17,6 @@ fastapi_app = FastAPI()
 
 
 @serve.deployment(ray_actor_options={"num_gpus": 1})
-@serve.deployment(name="transcription_server")
 @serve.ingress(fastapi_app)
 class TranscriptionServer:
     """
