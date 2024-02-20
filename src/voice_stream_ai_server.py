@@ -59,9 +59,14 @@ class TranscriptionServer:
                 if config.get('type') == 'config':
                     client.update_config(config['data'])
                     continue
+            elif message["type"] == "websocket.disconnect":
+                raise WebSocketDisconnect
             else:
-                logger.error(
-                    f"{type(message)} is not a valid message type")
+                import json
+                keys_list = list(message.keys())
+                logger.debug(
+                    f"{type(message)} is not a valid message type. Type is {message['type']}; keys: {json.dumps(keys_list)}")
+
                 logger.error(
                     f"Unexpected message type from {client.client_id}")
 
