@@ -17,6 +17,7 @@ fastapi_app = FastAPI()
 
 
 @serve.deployment(ray_actor_options={"num_gpus": 1})
+@serve.deployment(name="transcription_server")
 @serve.ingress(fastapi_app)
 class TranscriptionServer:
     """
@@ -35,9 +36,9 @@ class TranscriptionServer:
         samples_width (int): The width of each audio sample in bits.
         connected_clients (dict): A dictionary mapping client IDs to Client objects.
     """
+
     def __init__(self, sampling_rate=16000, samples_width=2):
-        # self.vad_pipeline = vad_pipeline
-        # self.asr_pipeline = asr_pipeline
+
         self.sampling_rate = sampling_rate
         self.samples_width = samples_width
         self.connected_clients = {}
@@ -48,18 +49,25 @@ class TranscriptionServer:
         self.vad_pipeline = VADFactory.create_vad_pipeline("pyannote")
         self.asr_pipeline = ASRFactory.create_asr_pipeline("faster_whisper")
 
-
-    async def handle_audio(self, client : Client, websocket: WebSocket):
+    async def handle_audio(self, client: Client, websocket: WebSocket):
         while True:
-            message = await websocket.receive_bytes()
-            if message.isascii():
-                # message = message.decode('utf-8')
+            message = await websocket.receive()
+            if "bytes" in message.keys():
+                client.append_audio_data(message['bytes'])
+            # TODO: need to verify this case
+            elif "text" in message.keys():
                 config = json.loads(message)
                 if config.get('type') == 'config':
                     client.update_config(config['data'])
+                    continue
             else:
-                client.append_audio_data(message)            # this is synchronous, any async operation is in BufferingStrategy
-                client.process_audio(websocket, self.vad_pipeline, self.asr_pipeline)
+                logger.error(
+                    f"{type(message)} is not a valid message type")
+                logger.error(
+                    f"Unexpected message type from {client.client_id}")
+
+            client.process_audio(
+                websocket, self.vad_pipeline, self.asr_pipeline)
 
     @fastapi_app.websocket("/")
     async def handle_websocket(self, websocket: WebSocket):
@@ -69,12 +77,12 @@ class TranscriptionServer:
         client = Client(client_id, self.sampling_rate, self.samples_width)
         self.connected_clients[client_id] = client
 
-        print(f"Client {client_id} connected")
+        logger.info(f"Client {client_id} connected")
 
         try:
             await self.handle_audio(client, websocket)
         except WebSocketDisconnect as e:
-            print(f"Connection with {client_id} closed: {e}")
+            logger.warn(f"Connection with {client_id} closed: {e}")
         finally:
             del self.connected_clients[client_id]
 
