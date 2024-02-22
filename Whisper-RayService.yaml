@@ -77,7 +77,10 @@ spec:
                 nvidia.com/gpu: 1
             env:
             - name: 'PYANNOTE_AUTH_TOKEN'
-              value: ''
+              valueFrom:
+                secretKeyRef:
+                  name: my-secret
+                  key: password
             # volumeMounts:
               # - name: model-storage
                 # mountPath: /serve_app/model
