@@ -8,4 +8,5 @@ COPY . .
 USER root
 RUN chmod 777 /serve_app/audio_files
 
+ENV TZ=Asia/Taipei
 USER $RAY_UID
