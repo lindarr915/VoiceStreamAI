@@ -51,11 +51,14 @@ class TranscriptionServer:
     async def handle_audio(self, client: Client, websocket: WebSocket):
         while True:
             message = await websocket.receive()
+
             if "bytes" in message.keys():
                 client.append_audio_data(message['bytes'])
             # TODO: need to verify this case
             elif "text" in message.keys():
-                config = json.loads(message)
+                import json
+
+                config = json.loads(message['text'])
                 if config.get('type') == 'config':
                     client.update_config(config['data'])
                     continue
