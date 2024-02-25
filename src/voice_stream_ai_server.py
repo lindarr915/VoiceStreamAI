@@ -72,9 +72,10 @@ class TranscriptionServer:
 
                 logger.error(
                     f"Unexpected message type from {client.client_id}")
+            
+            client.process_audio(websocket, self.vad_pipeline, self.asr_pipeline)
+            
 
-            client.process_audio(
-                websocket, self.vad_pipeline, self.asr_pipeline)
 
     @fastapi_app.websocket("/")
     async def handle_websocket(self, websocket: WebSocket):
