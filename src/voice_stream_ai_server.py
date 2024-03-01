@@ -18,7 +18,7 @@ fastapi_app = FastAPI()
 from ray.serve.handle import DeploymentHandle
 
 
-@serve.deployment()
+@serve.deployment
 @serve.ingress(fastapi_app)
 class TranscriptionServer:
     """
