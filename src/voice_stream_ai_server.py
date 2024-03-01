@@ -98,4 +98,4 @@ class TranscriptionServer:
             del self.connected_clients[client_id]
 
 
-app = TranscriptionServer.bind(FasterWhisperASR.bind())
+entrypoint = TranscriptionServer.bind(FasterWhisperASR.bind())
