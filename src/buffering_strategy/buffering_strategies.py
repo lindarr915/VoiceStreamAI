@@ -5,6 +5,7 @@ import time
 from fastapi import WebSocket
 
 from .buffering_strategy_interface import BufferingStrategyInterface
+from ray.serve.handle import DeploymentHandle
 
 class SilenceAtEndOfChunk(BufferingStrategyInterface):
     """
@@ -45,7 +46,7 @@ class SilenceAtEndOfChunk(BufferingStrategyInterface):
         
         self.processing_flag = False
 
-    def process_audio(self, websocket : WebSocket, vad_pipeline, asr_pipeline):
+    def process_audio(self, websocket : WebSocket, vad_pipeline, asr_handle):
         """
         Process audio chunks by checking their length and scheduling asynchronous processing.
 
@@ -66,9 +67,9 @@ class SilenceAtEndOfChunk(BufferingStrategyInterface):
             self.client.buffer.clear()
             self.processing_flag = True
             # Schedule the processing in a separate task
-            asyncio.create_task(self.process_audio_async(websocket, vad_pipeline, asr_pipeline))
+            asyncio.create_task(self.process_audio_async(websocket, vad_pipeline, asr_handle))
     
-    async def process_audio_async(self, websocket :WebSocket, vad_pipeline, asr_pipeline):
+    async def process_audio_async(self, websocket : WebSocket, vad_pipeline, asr_handle : DeploymentHandle):
         """
         Asynchronously process audio for activity detection and transcription.
 
@@ -91,7 +92,7 @@ class SilenceAtEndOfChunk(BufferingStrategyInterface):
 
         last_segment_should_end_before = ((len(self.client.scratch_buffer) / (self.client.sampling_rate * self.client.samples_width)) - self.chunk_offset_seconds)
         if vad_results[-1]['end'] < last_segment_should_end_before:
-            transcription = await asr_pipeline.transcribe(self.client)
+            transcription = await asr_handle.transcribe.remote(self.client)
             if transcription['text'] != '':
                 end = time.time()
                 transcription['processing_time'] = end - start

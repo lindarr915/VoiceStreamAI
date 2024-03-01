@@ -4,6 +4,10 @@ from faster_whisper import WhisperModel
 from .asr_interface import ASRInterface
 from src.audio_utils import save_audio_to_file
 
+
+from ray import serve
+from ray.serve.handle import DeploymentHandle
+
 language_codes = {
     "afrikaans": "af",
     "amharic": "am",
@@ -107,7 +111,10 @@ language_codes = {
     "cantonese": "yue",
 }
 
-
+@serve.deployment(
+    ray_actor_options={"num_gpus": 1},
+    autoscaling_config={"min_replicas": 1, "max_replicas": 10},
+)
 class FasterWhisperASR(ASRInterface):
     def __init__(self, **kwargs):
         model_size = kwargs.get('model_size', "large-v3")

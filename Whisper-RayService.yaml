@@ -104,7 +104,7 @@ spec:
           autoscaling_config:
             target_num_ongoing_requests_per_replica: 5
             min_replicas: 1
-            max_replicas: 20
+            max_replicas: 5
             initial_replicas: 1
   serviceUnhealthySecondThreshold: 900
 
