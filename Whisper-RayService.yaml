@@ -16,13 +16,12 @@ spec:
           containers:
           - env:
             - name: RAY_GRAFANA_IFRAME_HOST
-              value: "https://o11y.raycluster.lindarr.people.aws.dev"
+              value: https://o11y.raycluster.lindarr.people.aws.dev
             - name: RAY_GRAFANA_HOST
               value: http://prometheus-grafana.prometheus-system.svc:80
             - name: RAY_PROMETHEUS_HOST
               value: http://prometheus-kube-prometheus-prometheus.prometheus-system.svc:9090
-            image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-whisper-streaming:latest
-            # rayproject/ray-ml:2.9.2-py310
+            image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-whisper-streaming@sha256:9fc47e4575f659ad409b314530727840a271ec4fee15c2b25217af4e333601bb
             name: ray-head
             ports:
             - containerPort: 6379
@@ -64,7 +63,7 @@ spec:
       template:
         spec:
           containers:
-          - image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-whisper-streaming:latest
+          - image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-whisper-streaming@sha256:9fc47e4575f659ad409b314530727840a271ec4fee15c2b25217af4e333601bb
             name: ray-worker
             resources:
               limits:
@@ -77,10 +76,7 @@ spec:
                 nvidia.com/gpu: 1
             env:
             - name: 'PYANNOTE_AUTH_TOKEN'
-              valueFrom:
-                secretKeyRef:
-                  name: my-secret
-                  key: password
+              value: 'hf_'
             # volumeMounts:
               # - name: model-storage
                 # mountPath: /serve_app/model
@@ -97,14 +93,16 @@ spec:
     applications:
       - name: whisper-streaming
         import_path: src.voice_stream_ai_server:app
-        # runtime_env:
+        runtime_env:
+          working_dir: "https://github.com/lindarr915/VoiceStreamAI/archive/033b8975bbacfe117898dd4612971c8f98e9abe7.zip"
         deployments:
         - name: TranscriptionServer
-          max_concurrent_queries: 5
+          max_concurrent_queries: 50
           autoscaling_config:
-            target_num_ongoing_requests_per_replica: 5
+            target_num_ongoing_requests_per_replica: 10
             min_replicas: 1
-            max_replicas: 5
+            max_replicas: 10
             initial_replicas: 1
   serviceUnhealthySecondThreshold: 900
 
+ 
