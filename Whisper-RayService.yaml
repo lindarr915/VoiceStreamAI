@@ -1,7 +1,6 @@
 apiVersion: ray.io/v1
 kind: RayService
 metadata:
-  annotations:
   name: whisper-streaming
   namespace: default
 spec:
@@ -21,7 +20,7 @@ spec:
               value: http://prometheus-grafana.prometheus-system.svc:80
             - name: RAY_PROMETHEUS_HOST
               value: http://prometheus-kube-prometheus-prometheus.prometheus-system.svc:9090
-            image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-whisper-streaming@sha256:9fc47e4575f659ad409b314530727840a271ec4fee15c2b25217af4e333601bb
+            image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-whisper-streaming@sha256:d82e8c23a1a9ac653a1c715dd0dd18cd968d6c4b31d027574d24c798323ecd95
             name: ray-head
             ports:
             - containerPort: 6379
@@ -59,11 +58,14 @@ spec:
       maxReplicas: 20
       minReplicas: 1
       rayStartParams: {}
-      replicas: 1
+      replicas: 2
       template:
         spec:
           containers:
-          - image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-whisper-streaming@sha256:9fc47e4575f659ad409b314530727840a271ec4fee15c2b25217af4e333601bb
+          - env:
+            - name: PYANNOTE_AUTH_TOKEN
+              value: hf_
+            image: 464616699298.dkr.ecr.ap-northeast-1.amazonaws.com/ray-ml-whisper-streaming@sha256:d82e8c23a1a9ac653a1c715dd0dd18cd968d6c4b31d027574d24c798323ecd95
             name: ray-worker
             resources:
               limits:
@@ -74,16 +76,6 @@ spec:
                 cpu: 3
                 memory: 12G
                 nvidia.com/gpu: 1
-            env:
-            - name: 'PYANNOTE_AUTH_TOKEN'
-              value: 'hf_'
-            # volumeMounts:
-              # - name: model-storage
-                # mountPath: /serve_app/model
-          # volumes:
-            # - name: model-storage
-              # persistentVolumeClaim:
-                # claimName: efs-claim-sd-model
           tolerations:
           - effect: NoSchedule
             key: ray.io/node-type
@@ -91,18 +83,23 @@ spec:
             value: worker
   serveConfigV2: |
     applications:
-      - name: whisper-streaming
-        import_path: src.voice_stream_ai_server:app
+      - name: whisper_app
+        import_path: src.voice_stream_ai_server:entrypoint
         runtime_env:
-          working_dir: "https://github.com/lindarr915/VoiceStreamAI/archive/033b8975bbacfe117898dd4612971c8f98e9abe7.zip"
+          working_dir: "https://github.com/lindarr915/VoiceStreamAI/archive/a6c0f57e4901e155f487a27ff9208061b783c37e.zip"
         deployments:
         - name: TranscriptionServer
-          max_concurrent_queries: 50
+          max_concurrent_queries: 100
           autoscaling_config:
-            target_num_ongoing_requests_per_replica: 10
+            target_num_ongoing_requests_per_replica: 5
             min_replicas: 1
-            max_replicas: 10
-            initial_replicas: 1
+            max_replicas: 5
+            initial_replicas: 3
+        - name: FasterWhisperASR
+          max_concurrent_queries: 10
+          autoscaling_config:
+            target_num_ongoing_requests_per_replica: 2
+            min_replicas: 1
+            max_replicas: 5
+            initial_replicas: 3
   serviceUnhealthySecondThreshold: 900
-
- 
