@@ -3,9 +3,15 @@ import asyncio
 import json
 import time
 from fastapi import WebSocket
+from src.audio_utils import save_audio_to_file
 
 from .buffering_strategy_interface import BufferingStrategyInterface
 from ray.serve.handle import DeploymentHandle
+
+import logging
+logger = logging.getLogger("ray.serve")
+logger.setLevel(logging.DEBUG)
+
 
 class SilenceAtEndOfChunk(BufferingStrategyInterface):
     """
@@ -46,7 +52,7 @@ class SilenceAtEndOfChunk(BufferingStrategyInterface):
         
         self.processing_flag = False
 
-    def process_audio(self, websocket : WebSocket, vad_pipeline, asr_handle):
+    def process_audio(self, websocket : WebSocket, vad_handle, asr_handle):
         """
         Process audio chunks by checking their length and scheduling asynchronous processing.
 
@@ -61,15 +67,16 @@ class SilenceAtEndOfChunk(BufferingStrategyInterface):
         chunk_length_in_bytes = self.chunk_length_seconds * self.client.sampling_rate * self.client.samples_width
         if len(self.client.buffer) > chunk_length_in_bytes:
             if self.processing_flag:
-                 raise RuntimeError("Error in realtime processing: tried processing a new chunk while the previous one was still being processed")
-
-            self.client.scratch_buffer += self.client.buffer
-            self.client.buffer.clear()
-            self.processing_flag = True
-            # Schedule the processing in a separate task
-            asyncio.create_task(self.process_audio_async(websocket, vad_pipeline, asr_handle))
+                 logger.warning("Tried processing a new chunk while the previous one was still being processed")
+                #  raise RuntimeError("Error in realtime processing: tried processing a new chunk while the previous one was still being processed")
+            else:
+                self.client.scratch_buffer += self.client.buffer
+                self.client.buffer.clear()
+                self.processing_flag = True
+                # Schedule the processing in a separate task
+                asyncio.create_task(self.process_audio_async(websocket, vad_handle, asr_handle))
     
-    async def process_audio_async(self, websocket : WebSocket, vad_pipeline, asr_handle : DeploymentHandle):
+    async def process_audio_async(self, websocket : WebSocket, vad_handle, asr_handle : DeploymentHandle):
         """
         Asynchronously process audio for activity detection and transcription.
 
@@ -82,7 +89,7 @@ class SilenceAtEndOfChunk(BufferingStrategyInterface):
             asr_pipeline: The automatic speech recognition pipeline.
         """   
         start = time.time()
-        vad_results = await vad_pipeline.detect_activity(self.client)
+        vad_results = await vad_handle.detect_activity.remote(client = self.client)
 
         if len(vad_results) == 0:
             self.client.scratch_buffer.clear()
@@ -92,13 +99,15 @@ class SilenceAtEndOfChunk(BufferingStrategyInterface):
 
         last_segment_should_end_before = ((len(self.client.scratch_buffer) / (self.client.sampling_rate * self.client.samples_width)) - self.chunk_offset_seconds)
         if vad_results[-1]['end'] < last_segment_should_end_before:
-            transcription = await asr_handle.transcribe.remote(self.client)
+
+            transcription = await asr_handle.transcribe.remote(client = self.client)
+            self.client.increment_file_counter()
+            
             if transcription['text'] != '':
                 end = time.time()
                 transcription['processing_time'] = end - start
                 json_transcription = json.dumps(transcription) 
                 await websocket.send_text(json_transcription)
             self.client.scratch_buffer.clear()
-            self.client.increment_file_counter()
         
         self.processing_flag = False

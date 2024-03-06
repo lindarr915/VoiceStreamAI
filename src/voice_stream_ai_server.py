@@ -11,6 +11,7 @@ import logging
 from src.audio_utils import save_audio_to_file
 from src.client import Client
 from src.asr.faster_whisper_asr import FasterWhisperASR
+from src.vad.pyannote_vad import PyannoteVAD
 
 logger = logging.getLogger("ray.serve")
 logger.setLevel(logging.DEBUG)
@@ -38,17 +39,18 @@ class TranscriptionServer:
         connected_clients (dict): A dictionary mapping client IDs to Client objects.
     """
 
-    def __init__(self, asr_handle: DeploymentHandle, sampling_rate=16000, samples_width=2):
+    def __init__(self, asr_handle: DeploymentHandle, vad_handle = DeploymentHandle, sampling_rate=16000, samples_width=2):
 
         self.sampling_rate = sampling_rate
         self.samples_width = samples_width
         self.connected_clients = {}
         self.asr_handle = asr_handle
+        self.vad_handle = vad_handle
 
         from src.asr.asr_factory import ASRFactory
         from src.vad.vad_factory import VADFactory
 
-        self.vad_pipeline = VADFactory.create_vad_pipeline("pyannote")
+        # self.vad_pipeline = VADFactory.create_vad_pipeline("pyannote")
         # self.asr_pipeline = ASRFactory.create_asr_pipeline("faster_whisper")
 
     async def handle_audio(self, client: Client, websocket: WebSocket):
@@ -76,7 +78,7 @@ class TranscriptionServer:
                 logger.error(
                     f"Unexpected message type from {client.client_id}")
             
-            client.process_audio(websocket, self.vad_pipeline, self.asr_handle)
+            client.process_audio(websocket, self.vad_handle, self.asr_handle)
             
 
 
@@ -98,4 +100,4 @@ class TranscriptionServer:
             del self.connected_clients[client_id]
 
 
-entrypoint = TranscriptionServer.bind(FasterWhisperASR.bind())
+entrypoint = TranscriptionServer.bind(FasterWhisperASR.bind(), PyannoteVAD.bind())

@@ -8,7 +8,13 @@ from pyannote.audio.pipelines import VoiceActivityDetection
 from .vad_interface import VADInterface
 from src.audio_utils import save_audio_to_file
 
+from ray import serve
+from ray.serve.handle import DeploymentHandle
 
+@serve.deployment(
+    ray_actor_options={"num_cpus": 1},
+    autoscaling_config={"min_replicas": 1, "max_replicas": 10},
+)
 class PyannoteVAD(VADInterface):
     """
     Pyannote-based implementation of the VADInterface.

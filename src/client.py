@@ -1,5 +1,6 @@
 from src.buffering_strategy.buffering_strategy_factory import BufferingStrategyFactory
 from fastapi import WebSocket
+import uuid
 
 class Client:
     """
@@ -24,7 +25,7 @@ class Client:
         self.config = {"language": None,
                        "processing_strategy": "silence_at_end_of_chunk", 
                        "processing_args": {
-                           "chunk_length_seconds": 5, 
+                           "chunk_length_seconds": 3, 
                            "chunk_offset_seconds": 0.1
                            }
                        }
@@ -49,7 +50,10 @@ class Client:
         self.file_counter += 1
 
     def get_file_name(self):
+        # Generate an UUID string 
+        new_uuid = uuid.uuid4()
+
         return f"{self.client_id}_{self.file_counter}.wav"
     
-    def process_audio(self, websocket : WebSocket, vad_pipeline, asr_handle):
-        self.buffering_strategy.process_audio(websocket, vad_pipeline, asr_handle)
+    def process_audio(self, websocket : WebSocket, vad_handle, asr_handle):
+        self.buffering_strategy.process_audio(websocket, vad_handle, asr_handle)
